@@ -5,9 +5,7 @@
   "dependencies": {
     "react": "^16.4.1",
     "react-dom": "^16.4.1",
-    "react-scripts": "1.1.4",
-    "underscore": "^1.9.1",
-    "v86": "git+https://github.com/humphd/v86.git#0324c7cfefe76391db7ddabc6b612054fda7a8cf"
+    "react-scripts": "1.1.4"
   },
   "scripts": {
     "start": "react-scripts start",

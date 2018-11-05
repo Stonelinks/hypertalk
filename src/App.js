@@ -1,38 +1,36 @@
 import React, { Component } from "react";
-import _ from "underscore";
 import logo from "./logo.svg";
 import "./App.css";
-
-import { V86Starter } from "v86/build/libv86";
 
 import seabios from "./bios/seabios.bin";
 import vgabios from "./bios/vgabios.bin";
 
-import freedos from "./images/freedos722.img";
-// import msdos from "./images/msdos.img";
+import windows from "./images/windows98.img";
+import v86stateURL from "./images/v86state.bin";
 
-const SCREEN_WIDTH = 80;
-const SCREEN_HEIGHT = 25;
-const SCREEN = new Uint8Array(SCREEN_WIDTH * SCREEN_HEIGHT);
+// [:phoneme on][hxae<300,10>piy<300,10> brr<600,12>th<100>dey<600,10> tuw<600,15> yu<1200,14>_<120>][hxae<300,10>piy<300,10> brr<600,12>th<100>dey<600,10> tuw<600,17> yu<1200,15>_<120>][hxae<300,10>piy<300,10>brr<600,22>th<100>dey<600,19>dih<600,15>rdeh<600,14>ktao<600,12>k_<120>_<120>][hxae<300,20>piy<300,20> brr<600,19>th<100>dey<600,15> tuw<600,17> yu<1200,15>]
 
-function screen_to_text() {
-  let s = "";
-  for (var i = 0; i < SCREEN_HEIGHT; i++) {
-    s += line_to_text(i) + "\n";
+const FONT_SIZE = 14;
+const WELCOME_MESSAGE = "harder daddy";
+const SHOW_SCREEN = false;
+
+const styles = {
+  screen: {
+    whiteSpace: "pre",
+    font: `${FONT_SIZE}px monospace`,
+    lineHeight: `${FONT_SIZE}px`
+  },
+  input: {
+    marginTop: "10px",
+    textAlign: "center",
+    whiteSpace: "pre",
+    font: `${FONT_SIZE}px monospace`,
+    lineHeight: `${FONT_SIZE}px`
   }
-  return s;
-}
+};
 
-function line_to_text(y) {
-  return bytearray_to_string(get_line(y));
-}
-
-function get_line(y) {
-  return SCREEN.subarray(y * SCREEN_WIDTH, (y + 1) * SCREEN_WIDTH);
-}
-
-function bytearray_to_string(arr) {
-  return String.fromCharCode.apply(String, arr);
+function timeout(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 class App extends Component {
@@ -40,58 +38,102 @@ class App extends Component {
     super(props);
 
     this.state = {
-      screen: "",
-      booted: false
+      whatToSay: WELCOME_MESSAGE,
+      busy: true,
+      serialOutput: ""
     };
 
-    this.sendCommand = this.sendCommand.bind(this);
-    window.sendCommand = this.sendCommand;
+    this.say = this.say.bind(this);
+    window.say = this.say;
 
-    this.updateScreen = _.debounce(this.updateScreen.bind(this), 100);
+    this.onChange = this.onChange.bind(this);
+    this.onKeyPress = this.onKeyPress.bind(this);
   }
 
-  sendCommand(string) {
-    string.split("").forEach(c => {
-      this.emulator.keyboard_adapter.simulate_char(c);
-    });
-    this.emulator.keyboard_adapter.simulate_press(13);
-  }
+  async say(string) {
+    if (!this.state.busy) {
+      this.setState({ busy: true, serialOutput: "" });
 
-  updateScreen() {
-    this.setState({ screen: screen_to_text() });
-    const { screen, booted } = this.state;
-    if (!booted && screen.trim().endsWith("A:\\>")) {
-      this.setState({ booted: true });
-      this.sendCommand("dir");
+      this.emulator.serial0_send(`${string}213p`);
+
+      while (true) {
+
+        await timeout(2000)
+        const {serialOutput} = this.state
+
+        if (serialOutput.indexOf('ready') !== -1) {
+          this.setState({
+            busy: false
+          });
+          return
+        }
+      }
     }
   }
 
   componentDidMount() {
-    this.emulator = new V86Starter({
-      // screen_container: document.getElementById("screen_container"),
-      bios: { url: seabios },
-      vga_bios: { url: vgabios },
-      fda: { url: freedos },
-      // cdrom: { url: msdos },
-      autostart: true,
-      // memory_size: 256 * MB,
-      // vga_memory_size: 10 * MB,
-      boot_order: 0,
-      disable_mouse: true,
-      disable_keyboard: false
-    });
+    const MB = 1024 * 1024;
 
-    this.emulator.add_listener("screen-put-char", chr => {
-      var y = chr[0];
-      var x = chr[1];
-      var code = chr[2];
-      SCREEN[x + SCREEN_WIDTH * y] = code;
-      this.updateScreen();
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", v86stateURL, true);
+    xhr.responseType = "arraybuffer";
+    xhr.addEventListener(
+      "load",
+      () => {
+        if (xhr.status === 200) {
+          const v86StateArrayBuffer = xhr.response;
+
+          this.emulator = new window.V86Starter({
+            screen_container: SHOW_SCREEN
+              ? document.getElementById("screen_container")
+              : null,
+            bios: { url: seabios },
+            vga_bios: { url: vgabios },
+            hda: { url: windows },
+            autostart: true,
+            memory_size: 128 * MB,
+            vga_memory_size: 8 * MB,
+            disable_mouse: true,
+            disable_keyboard: true
+          });
+
+          window.emulator = this.emulator;
+
+          this.emulator.add_listener("emulator-ready", async () => {
+            this.emulator.restore_state(v86StateArrayBuffer);
+            await timeout(1000);
+            this.setState({busy: false})
+            await this.say(WELCOME_MESSAGE, true);
+          });
+
+          this.emulator.add_listener("serial0-output-char", char => {
+            let { serialOutput } = this.state;
+            serialOutput += char;
+            this.setState({
+              serialOutput
+            });
+          });
+        }
+      },
+      false
+    );
+    xhr.send();
+  }
+
+  onChange(e) {
+    this.setState({
+      whatToSay: e.target.value
     });
   }
 
+  onKeyPress(e) {
+    if (e.key === "Enter") {
+      this.say(this.state.whatToSay);
+    }
+  }
+
   render() {
-    const { screen, booted } = this.state;
+    const { busy, whatToSay } = this.state;
 
     return (
       <div className="App">
@@ -100,9 +142,26 @@ class App extends Component {
           <h1 className="App-title">Welcome to hypertalk</h1>
         </header>
 
-        <pre>{booted ? "Ready" : "Please wait, loading..."}</pre>
-        <hr />
-        <pre>{screen}</pre>
+        <textarea
+          value={whatToSay}
+          style={styles.input}
+          disabled={busy}
+          onChange={this.onChange}
+          onKeyPress={this.onKeyPress}
+          cols={80}
+          rows={10}
+        />
+
+        <pre>{busy ? "Please wait..." : "Ready"}</pre>
+
+        {SHOW_SCREEN && (
+          <div>
+            <div id="screen_container">
+              <div style={styles.screen} />
+              <canvas style={{ display: "none" }} />
+            </div>
+          </div>
+        )}
       </div>
     );
   }

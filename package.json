@@ -2,15 +2,35 @@
   "name": "hypertalk",
   "version": "0.1.0",
   "private": true,
+  "homepage": ".",
   "dependencies": {
-    "react": "^16.4.1",
-    "react-dom": "^16.4.1",
-    "react-scripts": "1.1.4"
+    "cors": "2.8.5",
+    "express": "4.16.4",
+    "react": "16.6.0",
+    "react-dom": "16.6.0",
+    "socket.io": "2.1.1",
+    "socket.io-client": "2.1.1"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
-  }
+    "start-be": "node server.js",
+    "start": "node server.js",
+    "start-fe": "react-scripts start",
+    "build-fe":
+      "REACT_APP_CHATSERVER_ENDPOINT='https://hypertalk-221623.appspot.com' && react-scripts build",
+    "deploy": "npm run predeploy && npm run deploy-fe && npm run deploy-be",
+    "predeploy": "node predeploy.js && npm run lint",
+    "deploy-be": "gcloud -q app deploy",
+    "deploy-fe": "npm run build && touch build/.nojekyll && gh-pages -d build",
+    "lint": "prettier --write --no-semi *.js **/*.js"
+  },
+  "engines": {
+    "node": ">=8"
+  },
+  "devDependencies": {
+    "@google-cloud/storage": "2.2.0",
+    "gh-pages": "2.0.1",
+    "prettier": "1.12.1",
+    "react-scripts": "2.1.1"
+  },
+  "browserslist": [">0.2%", "not dead", "not ie <= 11", "not op_mini all"]
 }

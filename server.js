@@ -20,14 +20,24 @@ app.get("/", (req, res) => {
 })
 
 const users = {}
+const chatHistory = []
+const chatHistoryLimit = 10
 
 io.on("connection", function(socket) {
   console.log("a user connected")
   users[socket.id] = socket
 
+  socket.on("chat history", function(msg) {
+    socket.emit("chat history", JSON.stringify(chatHistory))
+  })
+
   socket.on("chat message", function(msg) {
     console.log("a user sent a message: ", msg)
     socket.broadcast.emit("chat message", msg)
+    chatHistory.push(JSON.parse(msg))
+    if (chatHistory.length > chatHistoryLimit) {
+      chatHistory.shift()
+    }
   })
 
   socket.on("disconnect", function() {

@@ -122,6 +122,14 @@ class App extends Component {
   }
 
   async componentDidMount() {
+    socket.on("chat history", msg => {
+      const history = JSON.parse(msg)
+
+      history.forEach(({ name, whatToSay }) => {
+        this.onUpdateChatHistory(name, whatToSay)
+      })
+    })
+    socket.emit("chat history")
     this.emulator = await createEmulator({
       onSerialOutput: char => {
         let { serialOutput } = this.state

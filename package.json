@@ -6,17 +6,21 @@
   "dependencies": {
     "cors": "2.8.5",
     "express": "4.16.4",
+    "inline-style-prefixer": "5.0.3",
     "react": "16.6.0",
+    "react-autosize-textarea": "5.0.0",
     "react-dom": "16.6.0",
+    "react-typography": "0.16.13",
     "socket.io": "2.1.1",
-    "socket.io-client": "2.1.1"
+    "socket.io-client": "2.1.1",
+    "typography": "0.16.17",
+    "typography-theme-sutro": "0.15.10"
   },
   "scripts": {
     "start-be": "node server.js",
     "start": "node server.js",
     "start-fe": "react-scripts start",
-    "build-fe":
-      "REACT_APP_CHATSERVER_ENDPOINT='https://hypertalk-221623.appspot.com' && react-scripts build",
+    "build-fe": "REACT_APP_CHATSERVER_ENDPOINT='https://hypertalk-221623.appspot.com' && react-scripts build",
     "deploy": "npm run predeploy && npm run deploy-fe && npm run deploy-be",
     "predeploy": "node predeploy.js && npm run lint",
     "deploy-be": "gcloud -q app deploy",
@@ -32,5 +36,10 @@
     "prettier": "1.12.1",
     "react-scripts": "2.1.1"
   },
-  "browserslist": [">0.2%", "not dead", "not ie <= 11", "not op_mini all"]
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
 }

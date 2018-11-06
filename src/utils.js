@@ -1,4 +1,4 @@
-function getURLAsBuffer(url) {
+function getURLAsBuffer(url, onProgress = function() {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open("GET", url, true)
@@ -14,6 +14,7 @@ function getURLAsBuffer(url) {
       },
       false
     )
+    xhr.addEventListener("progress", onProgress)
     xhr.send()
   })
 }

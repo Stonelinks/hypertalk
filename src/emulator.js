@@ -26,9 +26,10 @@ if (LOCAL_ASSETS) {
 
 function createEmulator(opts) {
   const onSerialOutput = opts.onSerialOutput
+  const onXHRProgress = opts.onXHRProgress
 
   return new Promise((resolve, reject) => {
-    let promises = [getURLAsBuffer(v86StateURL)]
+    let promises = [getURLAsBuffer(v86StateURL, onXHRProgress)]
 
     if (LOCAL_ASSETS) {
       promises.push(getURLAsBuffer(win98URL))

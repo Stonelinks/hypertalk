@@ -45,8 +45,12 @@ resources:
   memory_gb: 0.5
   disk_size_gb: 10
 
-env_variables:
-  SLACK_USER_OAUTH_ACCESS_TOKEN: '${process.env.SLACK_USER_OAUTH_ACCESS_TOKEN}'
+# none of these matter on the chat server
+# env_variables:
+#   REACT_APP_CHATSERVER_ENDPOINT: '${
+      process.env.REACT_APP_CHATSERVER_ENDPOINT
+    }'
+#   REACT_APP_USE_LOCAL_ASSETS: 'false'
 `
   )
 }

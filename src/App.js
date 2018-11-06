@@ -6,6 +6,8 @@ import Page from "./Page"
 import Nav from "./Nav"
 import Textarea from "./Textarea"
 
+import * as serviceWorker from "./serviceWorker"
+
 import {
   timeout,
   SHOW_SCREEN,
@@ -44,6 +46,7 @@ class App extends Component {
     this.state = {
       whatToSay: WELCOME_MESSAGE,
       busy: true,
+      busyText: "Please wait...",
       serialOutput: "",
       name: getUserName(),
       voice: getUserVoice(true),
@@ -51,6 +54,7 @@ class App extends Component {
     }
 
     this.broadcast = this.broadcast.bind(this)
+    window.say = this.broadcast
     this.utterance = this.utterance.bind(this)
 
     this.onResetName = this.onResetName.bind(this)
@@ -88,13 +92,14 @@ class App extends Component {
   async utterance(voice, whatToSay, self) {
     if (!this.state.busy) {
       this.setState({
-        busy: true
+        busy: true,
+        busyText: "Please wait, text to speech processing"
       })
 
       if (self) {
         this.setState({
           serialOutput: "",
-          whatToSay: "say something..."
+          whatToSay: "Type something..."
         })
       }
 
@@ -107,7 +112,8 @@ class App extends Component {
         const { serialOutput } = this.state
         if (serialOutput.indexOf("ready") !== -1) {
           this.setState({
-            busy: false
+            busy: false,
+            busyText: "Ready"
           })
           return
         }
@@ -121,11 +127,27 @@ class App extends Component {
         let { serialOutput } = this.state
         serialOutput += char
         this.setState({ serialOutput })
+      },
+      onXHRProgress: e => {
+        if (e.lengthComputable) {
+          const percentComplete = e.loaded / e.total * 100
+          this.setState({
+            busyText: `Please wait... ${parseInt(
+              percentComplete,
+              10
+            )}% loaded. Oh make sure ur sound is on.\nThis doesn't really work on mobile yet (at least not on my phone).`
+          })
+        }
       }
     })
 
+    // register service worker after emulator loads
+    serviceWorker.register()
+
     await timeout(1000)
-    this.setState({ busy: false })
+    this.setState({
+      busy: false
+    })
     await this.broadcast(WELCOME_MESSAGE, true)
 
     socket.on("chat message", msg => {
@@ -162,7 +184,7 @@ class App extends Component {
   }
 
   render() {
-    const { busy, whatToSay, name, voice, chatHistory } = this.state
+    const { busy, busyText, whatToSay, name, voice, chatHistory } = this.state
 
     return (
       <Page>
@@ -182,7 +204,7 @@ class App extends Component {
           />
         )}
 
-        <pre>{busy ? "Please wait, loading..." : "Ready!"}</pre>
+        <pre>{busyText}</pre>
 
         <div style={styles.chatHistory}>
           {chatHistory.map(({ name, whatToSay }) => {

@@ -19,12 +19,20 @@ app.get("/", (req, res) => {
     .end()
 })
 
-app.get("/", function(req, res) {
-  res.sendFile(__dirname + "/index.html")
-})
+const users = {}
 
 io.on("connection", function(socket) {
   console.log("a user connected")
+  users[socket.id] = socket
+
+  socket.on("chat message", function(msg) {
+    console.log("a user sent a message: ", msg)
+    socket.broadcast.emit("chat message", msg)
+  })
+
+  socket.on("disconnect", function() {
+    delete users[socket.id]
+  })
 })
 
 http.listen(PORT, () => {

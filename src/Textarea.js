@@ -1,7 +1,7 @@
 import React from "react"
 import TextareaAutosize from "react-autosize-textarea"
 
-import Styles, { pageWidth } from "./Styles"
+import Styles from "./Styles"
 
 const styles = Styles.Create({
   root: {

@@ -6,7 +6,13 @@ import Page from "./Page"
 import Nav from "./Nav"
 import Textarea from "./Textarea"
 
-import { timeout, SHOW_SCREEN, getUserName, getUserVoice, getWelcomeMessage } from "./utils"
+import {
+  timeout,
+  SHOW_SCREEN,
+  getUserName,
+  getUserVoice,
+  getWelcomeMessage
+} from "./utils"
 
 import createEmulator from "./emulator"
 import Styles from "./Styles"
@@ -22,6 +28,12 @@ const styles = Styles.Create({
     whiteSpace: "pre",
     font: `${Styles.vars.spacing.medium} monospace`,
     lineHeight: Styles.vars.spacing.medium
+  },
+  chatHistory: {
+    // backgroundColor: Styles.vars.colors.white
+  },
+  chatHistoryItem: {
+    marginTop: Styles.vars.spacing.medium
   }
 })
 
@@ -34,27 +46,64 @@ class App extends Component {
       busy: true,
       serialOutput: "",
       name: getUserName(),
-      voice: getUserVoice(true)
+      voice: getUserVoice(true),
+      chatHistory: []
     }
 
-    this.say = this.say.bind(this)
+    this.broadcast = this.broadcast.bind(this)
+    this.utterance = this.utterance.bind(this)
 
     this.onResetName = this.onResetName.bind(this)
     this.onResetVoice = this.onResetVoice.bind(this)
-    this.onChange = this.onChange.bind(this)
-    this.onKeyPress = this.onKeyPress.bind(this)
+
+    this.onChangeWhatToSay = this.onChangeWhatToSay.bind(this)
+    this.onMaybeSubmitWhatToSay = this.onMaybeSubmitWhatToSay.bind(this)
+    this.onUpdateChatHistory = this.onUpdateChatHistory.bind(this)
   }
 
-  async say(string) {
-    const { voice } = this.state
+  onUpdateChatHistory(name, whatToSay) {
+    let { chatHistory } = this.state
+    chatHistory = [{ name, whatToSay }].concat(chatHistory)
+
+    this.setState({
+      chatHistory
+    })
+  }
+
+  broadcast() {
+    const { voice, name, whatToSay } = this.state
+
+    this.utterance(voice, whatToSay, true)
+    this.onUpdateChatHistory(name, whatToSay)
+    socket.emit(
+      "chat message",
+      JSON.stringify({
+        name,
+        whatToSay,
+        voice
+      })
+    )
+  }
+
+  async utterance(voice, whatToSay, self) {
     if (!this.state.busy) {
-      this.setState({ busy: true, serialOutput: "" })
-      const sayText = `[:phoneme on]${voice}${string}213p`
-      console.log(sayText)
+      this.setState({
+        busy: true
+      })
+
+      if (self) {
+        this.setState({
+          serialOutput: "",
+          whatToSay: "say something..."
+        })
+      }
+
+      const sayText = `[:phoneme on]${voice}${whatToSay}213p`
+
       this.emulator.serial0_send(sayText)
 
       while (true) {
-        await timeout(500)
+        await timeout(1000)
         const { serialOutput } = this.state
         if (serialOutput.indexOf("ready") !== -1) {
           this.setState({
@@ -75,11 +124,15 @@ class App extends Component {
       }
     })
 
-    window.emulator = this.emulator
-
     await timeout(1000)
     this.setState({ busy: false })
-    await this.say(WELCOME_MESSAGE, true)
+    await this.broadcast(WELCOME_MESSAGE, true)
+
+    socket.on("chat message", msg => {
+      const { name, whatToSay, voice } = JSON.parse(msg)
+      this.onUpdateChatHistory(name, whatToSay)
+      this.utterance(voice, whatToSay, false)
+    })
   }
 
   onResetName() {
@@ -96,49 +149,63 @@ class App extends Component {
     })
   }
 
-  onChange(e) {
+  onChangeWhatToSay(e) {
     this.setState({
       whatToSay: e.target.value
     })
   }
 
-  onKeyPress(e) {
+  onMaybeSubmitWhatToSay(e) {
     if (e.key === "Enter") {
-      this.say(this.state.whatToSay)
+      this.broadcast(this.state.whatToSay)
     }
   }
 
   render() {
-    const { busy, whatToSay, name, voice } = this.state
+    const { busy, whatToSay, name, voice, chatHistory } = this.state
 
     return (
       <Page>
-        <div>
-          <Nav
-            items={[
-              { children: `name: ${name}`, onClick: this.onResetName },
-              { children: `voice: ${voice}`, onClick: this.onResetVoice }
-            ]}
-          />
+        <Nav
+          items={[
+            { children: `name: ${name}`, onClick: this.onResetName },
+            { children: `voice: ${voice}`, onClick: this.onResetVoice }
+          ]}
+        />
 
+        {!busy && (
           <Textarea
             value={whatToSay}
             disabled={busy}
-            onChange={this.onChange}
-            onKeyPress={this.onKeyPress}
+            onChange={this.onChangeWhatToSay}
+            onKeyPress={this.onMaybeSubmitWhatToSay}
           />
+        )}
 
-          <pre>{busy ? "Please wait, loading..." : "Say something"}</pre>
+        <pre>{busy ? "Please wait, loading..." : "Ready!"}</pre>
 
-          {SHOW_SCREEN && (
-            <div>
-              <div id="screen_container">
-                <div style={styles.screen} />
-                <canvas style={{ display: "none" }} />
-              </div>
-            </div>
-          )}
+        <div style={styles.chatHistory}>
+          {chatHistory.map(({ name, whatToSay }) => {
+            const msg = `${name}: ${whatToSay}`
+            return (
+              <Textarea
+                style={styles.chatHistoryItem}
+                key={msg}
+                value={msg}
+                disabled={true}
+              />
+            )
+          })}
         </div>
+
+        {SHOW_SCREEN && (
+          <div>
+            <div id="screen_container">
+              <div style={styles.screen} />
+              <canvas style={{ display: "none" }} />
+            </div>
+          </div>
+        )}
       </Page>
     )
   }

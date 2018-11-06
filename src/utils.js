@@ -152,4 +152,4 @@ function getWelcomeMessage(noPrompt = false) {
   ])
 }
 
-export { getWelcomeMessage };
+export { getWelcomeMessage }

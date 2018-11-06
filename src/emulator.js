@@ -3,7 +3,7 @@ import vgabios from "./bios/vgabios.bin"
 
 import staticFiles from "./staticFiles"
 
-import { timeout, getURLAsBuffer, SHOW_SCREEN } from "./utils"
+import { getURLAsBuffer, SHOW_SCREEN } from "./utils"
 
 const MB = 1024 * 1024
 

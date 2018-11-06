@@ -11,7 +11,7 @@ export const Create = function(rules) {
 export const colors = {
   black: "#1c1d20",
   white: "#ffffff",
-  orange: "#ffd000",
+  orange: "#ffea8d",
   grey0: "#e1e6e9",
   grey1: "#a5abb4",
   grey2: "#3e4043",

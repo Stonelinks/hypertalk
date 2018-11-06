@@ -24,7 +24,7 @@
     "deploy": "npm run predeploy && npm run deploy-fe && npm run deploy-be",
     "predeploy": "node predeploy.js && npm run lint",
     "deploy-be": "gcloud -q app deploy",
-    "deploy-fe": "npm run build && touch build/.nojekyll && gh-pages -d build",
+    "deploy-fe": "npm run build-fe && touch build/.nojekyll && gh-pages -d build",
     "lint": "prettier --write --no-semi *.js **/*.js"
   },
   "engines": {

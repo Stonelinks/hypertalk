@@ -99,7 +99,7 @@ class App extends Component {
       if (self) {
         this.setState({
           serialOutput: "",
-          whatToSay: "Type something..."
+          whatToSay: ""
         })
       }
 
@@ -113,7 +113,7 @@ class App extends Component {
         if (serialOutput.indexOf("ready") !== -1) {
           this.setState({
             busy: false,
-            busyText: "Ready"
+            busyText: "Type something to say it..."
           })
           return
         }
@@ -203,24 +203,21 @@ class App extends Component {
           ]}
         />
 
-        {!busy && (
-          <Textarea
-            value={whatToSay}
-            disabled={busy}
-            onChange={this.onChangeWhatToSay}
-            onKeyPress={this.onMaybeSubmitWhatToSay}
-          />
-        )}
-
-        <pre>{busyText}</pre>
+        <Textarea
+          placeholder={busyText}
+          value={whatToSay}
+          disabled={busy}
+          onChange={this.onChangeWhatToSay}
+          onKeyPress={this.onMaybeSubmitWhatToSay}
+        />
 
         <div style={styles.chatHistory}>
-          {chatHistory.map(({ name, whatToSay }) => {
+          {chatHistory.map(({ name, whatToSay }, i) => {
             const msg = `${name}: ${whatToSay}`
             return (
               <Textarea
                 style={styles.chatHistoryItem}
-                key={msg}
+                key={`${i}-${msg}`}
                 value={msg}
                 disabled={true}
               />

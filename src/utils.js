@@ -1,5 +1,13 @@
+import * as serviceWorker from "./serviceWorker"
+
+let cache = {}
+
 function getURLAsBuffer(url, onProgress = function() {}) {
   return new Promise((resolve, reject) => {
+    if (cache[url]) {
+      resolve(cache[url])
+      return
+    }
     const xhr = new XMLHttpRequest()
     xhr.open("GET", url, true)
     xhr.responseType = "arraybuffer"
@@ -7,7 +15,11 @@ function getURLAsBuffer(url, onProgress = function() {}) {
       "load",
       () => {
         if (xhr.status === 200) {
+          cache[url] = xhr.response
           resolve(xhr.response)
+
+          // register service worker after loading large asset?
+          serviceWorker.register()
         } else {
           reject()
         }
@@ -27,6 +39,7 @@ function timeout(ms) {
 
 export { timeout }
 
+// export const SHOW_SCREEN = true
 export const SHOW_SCREEN = false
 
 function chooseRandom(array) {
@@ -134,7 +147,6 @@ export { getUserVoice }
 function getWelcomeMessage(noPrompt = false) {
   return chooseRandom([
     "How are you gentlemen?",
-    "harder daddy",
     "happy birthday",
     "Sure why not",
     "Listen",
@@ -154,3 +166,9 @@ function getWelcomeMessage(noPrompt = false) {
 }
 
 export { getWelcomeMessage }
+
+function isChild() {
+  return window.location.href.indexOf("child") !== -1
+}
+
+export { isChild }

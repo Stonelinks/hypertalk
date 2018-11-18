@@ -7,14 +7,12 @@
     "cors": "2.8.5",
     "express": "4.16.4",
     "inline-style-prefixer": "5.0.3",
+    "mswordcontainer": "0.0.3",
     "react": "16.6.0",
     "react-autosize-textarea": "5.0.0",
     "react-dom": "16.6.0",
-    "react-typography": "0.16.13",
     "socket.io": "2.1.1",
-    "socket.io-client": "2.1.1",
-    "typography": "0.16.17",
-    "typography-theme-sutro": "0.15.10"
+    "socket.io-client": "2.1.1"
   },
   "scripts": {
     "start-be": "node server.js",
@@ -23,7 +21,7 @@
     "build-fe": "REACT_APP_CHATSERVER_ENDPOINT='https://hypertalk-221623.appspot.com' && REACT_APP_USE_LOCAL_ASSETS='false' && react-scripts build",
     "deploy": "npm run predeploy && npm run deploy-fe && npm run deploy-be",
     "predeploy": "node predeploy.js && npm run lint",
-    "deploy-be": "gcloud -q app deploy",
+    "deploy-be": "gcloud config set project hypertalk-221623 && gcloud -q app deploy",
     "deploy-fe": "npm run build-fe && touch build/.nojekyll && gh-pages -d build",
     "lint": "prettier --write --no-semi *.js **/*.js"
   },

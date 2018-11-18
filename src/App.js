@@ -1,22 +1,15 @@
 import React, { Component } from "react"
 
+import MSWordContainer from "mswordcontainer"
 import io from "socket.io-client"
 
-import Page from "./Page"
 import Nav from "./Nav"
 import Textarea from "./Textarea"
 
-import * as serviceWorker from "./serviceWorker"
+import { createEmulatorParent } from "./emulator"
 
-import {
-  timeout,
-  SHOW_SCREEN,
-  getUserName,
-  getUserVoice,
-  getWelcomeMessage
-} from "./utils"
+import { timeout, getUserName, getUserVoice, getWelcomeMessage } from "./utils"
 
-import createEmulator from "./emulator"
 import Styles from "./Styles"
 
 const socket = io(process.env.REACT_APP_CHATSERVER_ENDPOINT, {
@@ -26,11 +19,6 @@ const socket = io(process.env.REACT_APP_CHATSERVER_ENDPOINT, {
 const WELCOME_MESSAGE = getWelcomeMessage()
 
 const styles = Styles.Create({
-  screen: {
-    whiteSpace: "pre",
-    font: `${Styles.vars.spacing.medium} monospace`,
-    lineHeight: Styles.vars.spacing.medium
-  },
   chatHistory: {
     // backgroundColor: Styles.vars.colors.white
   },
@@ -44,10 +32,10 @@ class App extends Component {
     super(props)
 
     this.state = {
-      whatToSay: WELCOME_MESSAGE,
+      whatToSay: "",
+      blockTextEditing: true,
       busy: true,
       busyText: "Please wait...",
-      serialOutput: "",
       name: getUserName(),
       voice: getUserVoice(true),
       chatHistory: []
@@ -63,6 +51,9 @@ class App extends Component {
     this.onChangeWhatToSay = this.onChangeWhatToSay.bind(this)
     this.onMaybeSubmitWhatToSay = this.onMaybeSubmitWhatToSay.bind(this)
     this.onUpdateChatHistory = this.onUpdateChatHistory.bind(this)
+
+    this.createEmulator = this.createEmulator.bind(this)
+    this.stopEmulator = this.stopEmulator.bind(this)
   }
 
   onUpdateChatHistory(name, whatToSay) {
@@ -98,27 +89,51 @@ class App extends Component {
 
       if (self) {
         this.setState({
-          serialOutput: "",
+          blockTextEditing: true,
           whatToSay: ""
         })
       }
 
-      const sayText = `[:phoneme on]${voice}${whatToSay}213p`
+      const finalWhatToSay = `[:phoneme on]${voice}${whatToSay}213p`
+      await this.createEmulator(finalWhatToSay)
 
-      this.emulator.serial0_send(sayText)
-
-      while (true) {
-        await timeout(1000)
-        const { serialOutput } = this.state
-        if (serialOutput.indexOf("ready") !== -1) {
-          this.setState({
-            busy: false,
-            busyText: "Type something to say it..."
-          })
-          return
-        }
+      this.setState({
+        busy: false,
+        busyText: "Type something to say it..."
+      })
+      if (self) {
+        this.setState({ blockTextEditing: false })
       }
     }
+  }
+
+  async createEmulator(whatToSay) {
+    await createEmulatorParent({
+      whatToSay,
+      onXHRProgress: e => {
+        if (e.lengthComputable) {
+          const percentComplete = e.loaded / e.total * 100
+          this.setState({
+            busyText: `Please wait... ${parseInt(
+              percentComplete,
+              10
+            )}% loaded. Oh make sure ur sound is on.\nThis doesn't really work on mobile yet (at least not on my phone).`
+          })
+        }
+      },
+      onEmulatorFault: () => {
+        this.setState({
+          busy: false,
+          blockTextEditing: false,
+          busyText: "Type something to say it..."
+        })
+      }
+    })
+  }
+
+  stopEmulator() {
+    this.emulator.stop()
+    delete this.emulator
   }
 
   async componentDidMount() {
@@ -130,39 +145,16 @@ class App extends Component {
       })
     })
     socket.emit("chat history")
-    this.emulator = await createEmulator({
-      onSerialOutput: char => {
-        let { serialOutput } = this.state
-        serialOutput += char
-        this.setState({ serialOutput })
-      },
-      onXHRProgress: e => {
-        if (e.lengthComputable) {
-          const percentComplete = e.loaded / e.total * 100
-          this.setState({
-            busyText: `Please wait... ${parseInt(
-              percentComplete,
-              10
-            )}% loaded. Oh make sure ur sound is on.\nThis doesn't really work on mobile yet (at least not on my phone).`
-          })
-        }
-      }
-    })
-
-    // register service worker after emulator loads
-    serviceWorker.register()
-
-    await timeout(1000)
-    this.setState({
-      busy: false
-    })
-    await this.broadcast(WELCOME_MESSAGE, true)
 
     socket.on("chat message", msg => {
       const { name, whatToSay, voice } = JSON.parse(msg)
       this.onUpdateChatHistory(name, whatToSay)
       this.utterance(voice, whatToSay, false)
     })
+
+    await timeout(1000)
+    this.setState({ busy: false, whatToSay: WELCOME_MESSAGE })
+    await this.broadcast()
   }
 
   onResetName() {
@@ -192,10 +184,17 @@ class App extends Component {
   }
 
   render() {
-    const { busy, busyText, whatToSay, name, voice, chatHistory } = this.state
+    const {
+      blockTextEditing,
+      busyText,
+      whatToSay,
+      name,
+      voice,
+      chatHistory
+    } = this.state
 
     return (
-      <Page>
+      <MSWordContainer title={"hypertalk.doc"}>
         <Nav
           items={[
             { children: `name: ${name}`, onClick: this.onResetName },
@@ -204,9 +203,10 @@ class App extends Component {
         />
 
         <Textarea
+          _autoFocus
           placeholder={busyText}
           value={whatToSay}
-          disabled={busy}
+          disabled={blockTextEditing}
           onChange={this.onChangeWhatToSay}
           onKeyPress={this.onMaybeSubmitWhatToSay}
         />
@@ -224,16 +224,7 @@ class App extends Component {
             )
           })}
         </div>
-
-        {SHOW_SCREEN && (
-          <div>
-            <div id="screen_container">
-              <div style={styles.screen} />
-              <canvas style={{ display: "none" }} />
-            </div>
-          </div>
-        )}
-      </Page>
+      </MSWordContainer>
     )
   }
 }

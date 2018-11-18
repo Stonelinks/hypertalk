@@ -10,6 +10,9 @@ const styles = Styles.Create({
   img: {
     height: "80px",
     width: "auto"
+  },
+  root: {
+    marginBottom: Styles.vars.spacing.regular
   }
 })
 

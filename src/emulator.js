@@ -50,7 +50,7 @@ function unbindReceiveMessageFromChild() {
 // Send a message to the parent
 function sendMessageToParent(msg) {
   _log("sendMessageToParent", msg)
-  window.parent.postMessage(msg, "*")
+  window.parent.postMessage(msg)
 }
 
 // Listen to messages from parent window

@@ -7,7 +7,7 @@
     "cors": "2.8.5",
     "express": "4.16.4",
     "inline-style-prefixer": "5.0.3",
-    "mswordcontainer": "0.0.3",
+    "mswordcontainer": "0.0.13",
     "react": "16.6.0",
     "react-autosize-textarea": "5.0.0",
     "react-dom": "16.6.0",

@@ -3,68 +3,90 @@ import vgabios from "./bios/vgabios.bin"
 
 import staticFiles from "./staticFiles"
 
-import { getURLAsBuffer, isChild, SHOW_SCREEN } from "./utils"
+import {
+  getURLAsBuffer,
+  isChild,
+  SHOW_SCREEN,
+  getNewChildID,
+  getChildIDFromURL
+} from "./utils"
 
-// [:phoneme on][hxae<300,10>piy<300,10> brr<600,12>th<100>dey<600,10> tuw<600,15> yu<1200,14>_<120>][hxae<300,10>piy<300,10> brr<600,12>th<100>dey<600,10> tuw<600,17> yu<1200,15>_<120>][hxae<300,10>piy<300,10>brr<600,22>th<100>dey<600,19>dih<600,15>rdeh<600,14>ktao<600,12>k_<120>_<120>][hxae<300,20>piy<300,20> brr<600,19>th<100>dey<600,15> tuw<600,17> yu<1200,15>]
+function _log() {
+  let s = `${isChild() ? `child${getChildIDFromURL()}` : "parent"}: `
 
-function _log(method, s = { data: "" }) {
-  console.log(`isChild: ${isChild()} ${method} ${s.data}`)
+  for (let i = 0; i < arguments.length; i++) {
+    const arg = arguments[i]
+    if (typeof arg === "string") {
+      s += ` ${arg}`
+    } else if (arg.data) {
+      s += ` ${JSON.stringify(arg.data, null, 2)}`
+    } else {
+      s += ` ${arg}`
+    }
+  }
+  console.log(s)
 }
 
-let child
-function createChild() {
-  _log("createChild")
-  child = document.createElement("iframe")
-  child.src = `${window.location.href}?cachebust=${Date.now()}#child`
+const children = {}
+
+function createChild(id) {
+  _log("createChild", id)
+  const child = document.createElement("iframe")
+  child.src = `${window.location.href}?cachebust=${Date.now()}#childID=${id}`
   child.width = SHOW_SCREEN ? "1000" : "1"
   child.height = SHOW_SCREEN ? "500" : "1"
   document.querySelector("body").appendChild(child)
+  children[id] = child
 }
 
-function destroyChild() {
-  _log("destroyChild")
-  child.remove()
-  child = null
+function destroyChild(id) {
+  _log("destroyChild", id)
+  children[id].remove()
+  children[id] = null
+  delete children[id]
 }
 
-// Send a message to the child iframe
-function sendMessageToChild(msg) {
-  _log("sendMessageToChild", msg)
+// send a message to the child iframe
+function sendMessageToChild(id, msg) {
+  _log("sendMessageToChild", id, msg)
+  const child = children[id]
   child.contentWindow.postMessage(msg, "*")
 }
 
-// Listen to message from child window
-let bindReceiveMessageFromChild_cb = null
-function bindReceiveMessageFromChild(cb) {
-  bindReceiveMessageFromChild_cb = function(e) {
-    _log("receiveMessageFromChild", e)
+// listen to message from child window
+const childListeners = {}
+function bindReceiveMessageFromChild(id, cb) {
+  childListeners[id] = function(e) {
+    _log("receiveMessageFromChild", id, e)
     cb(e)
   }
-  window.addEventListener("message", bindReceiveMessageFromChild_cb, false)
+
+  window.addEventListener("message", childListeners[id], false)
 }
 
-function unbindReceiveMessageFromChild() {
-  window.removeEventListener("message", bindReceiveMessageFromChild_cb, false)
+function unbindReceiveMessageFromChild(id) {
+  window.removeEventListener("message", childListeners[id], false)
+  delete childListeners[id]
 }
 
-// Send a message to the parent
+// send a message to the parent
 function sendMessageToParent(msg) {
   _log("sendMessageToParent", msg)
   window.parent.postMessage(msg)
 }
 
-// Listen to messages from parent window
-let bindReceiveMessageFromParent_cb = null
-function bindReceiveMessageFromParent(cb) {
-  bindReceiveMessageFromParent_cb = function(e) {
+// listen to messages from parent window
+let parentListener = null
+function onReceiveMessageFromParent(cb) {
+  parentListener = function(e) {
     _log("receiveMessageFromParent", e)
     cb(e)
   }
-  window.addEventListener("message", bindReceiveMessageFromParent_cb, false)
+  window.addEventListener("message", parentListener, false)
 }
 
 function unbindReceiveMessageFromParent() {
-  window.removeEventListener("message", bindReceiveMessageFromParent_cb, false)
+  window.removeEventListener("message", parentListener, false)
 }
 
 const MB = 1024 * 1024
@@ -87,6 +109,7 @@ if (LOCAL_ASSETS) {
 function createEmulatorParent(opts = {}) {
   const onXHRProgress = opts.onXHRProgress
   const whatToSay = opts.whatToSay
+  const childID = getNewChildID()
 
   return new Promise((resolve, reject) => {
     let promises = [getURLAsBuffer(v86StateURL, onXHRProgress)]
@@ -100,29 +123,29 @@ function createEmulatorParent(opts = {}) {
       const v86State = values[0]
       const win98 = values[1]
 
-      bindReceiveMessageFromChild(e => {
+      bindReceiveMessageFromChild(childID, e => {
         switch (e.data) {
           // child has reported its ready, send large assets
-          case `child:ready`:
+          case `child:${childID}:ready`:
             msg = [`parent:sendAssets`, v86State]
             if (LOCAL_ASSETS) {
               msg.push(win98)
             } else {
               msg.push(null)
             }
-            sendMessageToChild(msg)
+            sendMessageToChild(childID, msg)
             break
 
           // child has reported its booted, tell it to say something
-          case `child:booted`:
+          case `child:${childID}:booted`:
             msg = [`parent:speak`, whatToSay]
-            sendMessageToChild(msg)
+            sendMessageToChild(childID, msg)
             break
 
           // child done speaking, kill it and exit promise
-          case `child:doneSpeaking`:
-            unbindReceiveMessageFromChild()
-            destroyChild()
+          case `child:${childID}:doneSpeaking`:
+            unbindReceiveMessageFromChild(childID)
+            destroyChild(childID)
             resolve()
             break
 
@@ -131,7 +154,7 @@ function createEmulatorParent(opts = {}) {
         }
       })
 
-      createChild()
+      createChild(childID)
     })
   })
 }
@@ -139,15 +162,16 @@ function createEmulatorParent(opts = {}) {
 export { createEmulatorParent }
 
 function createEmulatorChild(opts = {}) {
+  const childID = getChildIDFromURL()
   let emulator
 
   function done() {
     emulator.stop()
     unbindReceiveMessageFromParent()
-    sendMessageToParent("child:doneSpeaking")
+    sendMessageToParent(`child:${childID}:doneSpeaking`)
   }
 
-  bindReceiveMessageFromParent(e => {
+  onReceiveMessageFromParent(e => {
     switch (e.data[0]) {
       // child should create emulator with assets that were sent
       case `parent:sendAssets`:
@@ -175,21 +199,20 @@ function createEmulatorChild(opts = {}) {
 
           emulator.add_listener("emulator-ready", async () => {
             emulator.restore_state(v86State)
-            sendMessageToParent("child:booted")
+            sendMessageToParent(`child:${childID}:booted`)
           })
 
           function addErrorHandler(eventName) {
             emulator.add_listener(eventName, () => {
-              console.error(`fault detected with "${eventName}" event`)
-              emulator.stop()
-              sendMessageToParent("child:doneSpeaking")
+              _log(`fault detected with "${eventName}" event`)
+              done()
             })
           }
 
           addErrorHandler("cpu-event-halt")
         } catch (e) {
-          console.error(`fault detected`)
-          console.error(e)
+          _log(`fault detected`)
+          _log(e)
           done()
         }
         break
@@ -212,7 +235,7 @@ function createEmulatorChild(opts = {}) {
     }
   })
 
-  sendMessageToParent("child:ready")
+  sendMessageToParent(`child:${childID}:ready`)
 }
 
 export { createEmulatorChild }

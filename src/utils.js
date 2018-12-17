@@ -1,33 +1,45 @@
 import * as serviceWorker from "./serviceWorker"
 
-let cache = {}
-
+const cache = {}
+const inFlightCache = {}
 function getURLAsBuffer(url, onProgress = function() {}) {
   return new Promise((resolve, reject) => {
     if (cache[url]) {
       resolve(cache[url])
-      return
-    }
-    const xhr = new XMLHttpRequest()
-    xhr.open("GET", url, true)
-    xhr.responseType = "arraybuffer"
-    xhr.addEventListener(
-      "load",
-      () => {
-        if (xhr.status === 200) {
-          cache[url] = xhr.response
-          resolve(xhr.response)
-
-          // register service worker after loading large asset?
-          serviceWorker.register()
+    } else if (inFlightCache[url]) {
+      const checkCacheOnce = function() {
+        console.log(`waiting for ${url} in cache`)
+        if (cache[url]) {
+          resolve(cache[url])
         } else {
-          reject()
+          setTimeout(checkCacheOnce, 500)
         }
-      },
-      false
-    )
-    xhr.addEventListener("progress", onProgress)
-    xhr.send()
+      }
+      checkCacheOnce()
+    } else {
+      inFlightCache[url] = true
+      const xhr = new XMLHttpRequest()
+      xhr.open("GET", url, true)
+      xhr.responseType = "arraybuffer"
+      xhr.addEventListener(
+        "load",
+        () => {
+          if (xhr.status === 200) {
+            cache[url] = xhr.response
+            inFlightCache[url] = false
+            resolve(xhr.response)
+
+            // register service worker after loading large asset?
+            serviceWorker.register()
+          } else {
+            reject()
+          }
+        },
+        false
+      )
+      xhr.addEventListener("progress", onProgress)
+      xhr.send()
+    }
   })
 }
 
@@ -172,3 +184,17 @@ function isChild() {
 }
 
 export { isChild }
+
+let ids = 0
+function getNewChildID() {
+  ids++
+  return ids
+}
+
+export { getNewChildID }
+
+function getChildIDFromURL() {
+  return window.location.hash.split("=").pop()
+}
+
+export { getChildIDFromURL }

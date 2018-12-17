@@ -34,7 +34,6 @@ class App extends Component {
     this.state = {
       whatToSay: "",
       blockTextEditing: true,
-      busy: true,
       busyText: "Please wait...",
       name: getUserName(),
       voice: getUserVoice(true),
@@ -65,11 +64,9 @@ class App extends Component {
     })
   }
 
-  broadcast() {
+  async broadcast() {
     const { voice, name, whatToSay } = this.state
 
-    this.utterance(voice, whatToSay, true)
-    this.onUpdateChatHistory(name, whatToSay)
     socket.emit(
       "chat message",
       JSON.stringify({
@@ -78,32 +75,31 @@ class App extends Component {
         voice
       })
     )
+    await this.utterance(voice, whatToSay, true)
+    this.onUpdateChatHistory(name, whatToSay)
   }
 
   async utterance(voice, whatToSay, self) {
-    if (!this.state.busy) {
+    if (self) {
       this.setState({
-        busy: true,
-        busyText: "Please wait, text to speech processing"
+        whatToSay: "",
+        blockTextEditing: true,
+        busyText: "Processing speech..."
       })
+    }
 
-      if (self) {
-        this.setState({
-          blockTextEditing: true,
-          whatToSay: ""
-        })
-      }
+    if (!(voice[0] === "[" && voice[voice.length - 1] === "]")) {
+      voice = getUserVoice(true)
+    }
 
-      const finalWhatToSay = `[:phoneme on]${voice}${whatToSay}213p`
-      await this.createEmulator(finalWhatToSay)
+    const finalWhatToSay = `[:phoneme on]${voice}${whatToSay}213p`
+    await this.createEmulator(finalWhatToSay)
 
+    if (self) {
       this.setState({
-        busy: false,
+        blockTextEditing: false,
         busyText: "Type something to say it..."
       })
-      if (self) {
-        this.setState({ blockTextEditing: false })
-      }
     }
   }
 
@@ -114,16 +110,16 @@ class App extends Component {
         if (e.lengthComputable) {
           const percentComplete = e.loaded / e.total * 100
           this.setState({
+            blockTextEditing: true,
             busyText: `Please wait... ${parseInt(
               percentComplete,
               10
-            )}% loaded. Oh make sure ur sound is on.\nThis doesn't really work on mobile yet (at least not on my phone).`
+            )}% loaded. Make sure ur sound is on. This doesn't really work phones yet (at least not on my phone).`
           })
         }
       },
       onEmulatorFault: () => {
         this.setState({
-          busy: false,
           blockTextEditing: false,
           busyText: "Type something to say it..."
         })
@@ -153,7 +149,7 @@ class App extends Component {
     })
 
     await timeout(1000)
-    this.setState({ busy: false, whatToSay: WELCOME_MESSAGE })
+    this.setState({ whatToSay: WELCOME_MESSAGE })
     await this.broadcast()
   }
 

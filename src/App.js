@@ -8,7 +8,13 @@ import Textarea from "./Textarea"
 
 import { createEmulatorParent } from "./emulator"
 
-import { timeout, getUserName, getUserVoice, getWelcomeMessage } from "./utils"
+import {
+  timeout,
+  getUserName,
+  getUserVoice,
+  getWelcomeMessage,
+  getVersion
+} from "./utils"
 
 import Styles from "./Styles"
 
@@ -190,7 +196,7 @@ class App extends Component {
     } = this.state
 
     return (
-      <MSWordContainer title={"hypertalk.doc"}>
+      <MSWordContainer title={`hypertalk-${getVersion()}.doc`}>
         <Nav
           items={[
             { children: `name: ${name}`, onClick: this.onResetName },

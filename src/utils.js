@@ -179,6 +179,12 @@ function getWelcomeMessage(noPrompt = false) {
 
 export { getWelcomeMessage }
 
+function getVersion() {
+  return process.env.REACT_APP_VERSION || "dev"
+}
+
+export { getVersion }
+
 function isChild() {
   return window.location.href.indexOf("child") !== -1
 }
